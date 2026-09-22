@@ -1,307 +1,1283 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { computed } from 'vue'
+import { useUploadStore } from '../stores/uploadStore'
 
-const sidebarOpen = ref(true)
+const upload = useUploadStore()
 
-// Inicializa o canvas da Sidebar (Grade de Planilha + Partículas)
-onMounted(() => {
-  const canvas = document.getElementById('sidebar-canvas')
-  if (!canvas) return
-  const ctx = canvas.getContext('2d')
-  let w, h, points
-
-  function resize() {
-    w = canvas.width = canvas.offsetWidth
-    h = canvas.height = canvas.offsetHeight
-  }
-
-  function initPoints() {
-    const count = Math.floor((w * h) / 3500)
-    points = Array.from({ length: Math.max(count, 12) }, () => ({
-      x: Math.random() * w,
-      y: Math.random() * h,
-      vx: (Math.random() - 0.5) * 0.2,
-      vy: (Math.random() - 0.5) * 0.2,
-      r: Math.random() * 1.2 + 0.4
-    }))
-  }
-
-  function step() {
-    ctx.clearRect(0, 0, w, h)
-
-    // 1. GRADE SUTIL NA SIDEBAR
-    ctx.strokeStyle = 'rgba(90, 150, 130, 0.04)'
-    ctx.lineWidth = 1
-    const gridSize = 24
-
-    ctx.beginPath()
-    for (let x = 0; x < w; x += gridSize) {
-      ctx.moveTo(x, 0)
-      ctx.lineTo(x, h)
-    }
-    for (let y = 0; y < h; y += gridSize) {
-      ctx.moveTo(0, y)
-      ctx.lineTo(w, y)
-    }
-    ctx.stroke()
-
-    // 2. PARTÍCULAS E CONEXÕES NA SIDEBAR
-    for (const p of points) {
-      p.x += p.vx
-      p.y += p.vy
-      if (p.x < 0 || p.x > w) p.vx *= -1
-      if (p.y < 0 || p.y > h) p.vy *= -1
-    }
-
-    for (let i = 0; i < points.length; i++) {
-      for (let j = i + 1; j < points.length; j++) {
-        const a = points[i], b = points[j]
-        const dx = a.x - b.x, dy = a.y - b.y
-        const dist = Math.sqrt(dx * dx + dy * dy)
-        if (dist < 90) {
-          ctx.strokeStyle = `rgba(90,150,130,${0.22 * (1 - dist / 90)})`
-          ctx.lineWidth = 1
-          ctx.beginPath()
-          ctx.moveTo(a.x, a.y)
-          ctx.lineTo(b.x, b.y)
-          ctx.stroke()
-        }
-      }
-    }
-
-    for (const p of points) {
-      ctx.fillStyle = 'rgba(255,255,255,0.7)'
-      ctx.beginPath()
-      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2)
-      ctx.fill()
-    }
-
-    requestAnimationFrame(step)
-  }
-
-  window.addEventListener('resize', () => { resize(); initPoints(); })
-  resize()
-  initPoints()
-  step()
+// Todos os dados recebidos da planilha pelo Pinia
+const clientes = computed(() => {
+  return upload.dadosPlanilha || []
 })
 
-// Inicializa o Canvas do Gráfico Estático de Fundo (Estilo Off-White Fino com Pontos Brancos Brilhantes)
-onMounted(() => {
-  const canvas = document.getElementById('bg-chart-canvas')
-  if (!canvas) return
-  const ctx = canvas.getContext('2d')
+// TOTAL DE CLIENTES
+const totalClientes = computed(() => {
+  return clientes.value.length
+})
 
-  function drawStaticChart() {
-    const w = canvas.width = window.innerWidth
-    const h = canvas.height = window.innerHeight
-    ctx.clearRect(0, 0, w, h)
-
-    ctx.save()
-    ctx.beginPath()
-
-    // Coordenadas seguindo o padrão exato da referência enviada (com oscilações e forte alta no final)
-    const points = [
-      { x: w * 0.05, y: h * 0.90 },
-      { x: w * 0.12, y: h * 0.84 },
-      { x: w * 0.20, y: h * 0.74 },
-      { x: w * 0.28, y: h * 0.60 },
-      { x: w * 0.35, y: h * 0.85 },
-      { x: w * 0.42, y: h * 0.68 },
-      { x: w * 0.48, y: h * 0.62 },
-      { x: w * 0.55, y: h * 0.67 },
-      { x: w * 0.62, y: h * 0.63 },
-      { x: w * 0.70, y: h * 0.76 },
-      { x: w * 0.76, y: h * 0.64 },
-      { x: w * 0.82, y: h * 0.58 },
-      { x: w * 0.88, y: h * 0.35 },
-      { x: w * 0.95, y: h * 0.15 }
-    ]
-
-    // Preenchimento sutil abaixo da linha com tom off-white bem leve
-    ctx.moveTo(points[0].x, h)
-    points.forEach(p => ctx.lineTo(p.x, p.y))
-    ctx.lineTo(w, h)
-    ctx.closePath()
-
-    const grad = ctx.createLinearGradient(0, 0, 0, h)
-    grad.addColorStop(0, 'rgba(235, 240, 238, 0.04)')
-    grad.addColorStop(1, 'rgba(235, 240, 238, 0.00)')
-    ctx.fillStyle = grad
-    ctx.fill()
-
-    // Linha principal muito fina e em cor Off-White elegante
-    ctx.beginPath()
-    points.forEach((p, index) => {
-      if (index === 0) ctx.moveTo(p.x, p.y)
-      else ctx.lineTo(p.x, p.y)
-    })
-
-    ctx.strokeStyle = 'rgba(235, 240, 238, 0.35)'
-    ctx.lineWidth = 1.5
-    ctx.stroke()
-    ctx.restore()
-
-    // Pontos de luz brancos e iluminados em cada vértice do gráfico
-    points.forEach((p) => {
-      ctx.fillStyle = '#ffffff'
-      ctx.shadowColor = '#ffffff'
-      ctx.shadowBlur = 8
-      ctx.beginPath()
-      ctx.arc(p.x, p.y, 2.5, 0, Math.PI * 2)
-      ctx.fill()
-      ctx.shadowBlur = 0
-    })
+// Função auxiliar para pegar uma coluna mesmo se o nome variar
+function obterValor(objeto, campos) {
+  for (const campo of campos) {
+    if (
+      objeto[campo] !== undefined &&
+      objeto[campo] !== null &&
+      objeto[campo] !== ''
+    ) {
+      return objeto[campo]
+    }
   }
 
-  window.addEventListener('resize', drawStaticChart)
-  drawStaticChart()
+  return ''
+}
+
+// NOME DO CLIENTE
+function obterNome(cliente) {
+  return obterValor(cliente, [
+    'nome_cliente',
+    'cliente',
+    'nome',
+    'Cliente',
+    'Nome Cliente',
+    'Nome'
+  ]) || 'Não informado'
+}
+
+// CONSULTOR
+function obterConsultor(cliente) {
+  return obterValor(cliente, [
+    'consultor',
+    'Consultor',
+    'nome_consultor',
+    'Nome Consultor'
+  ]) || '-'
+}
+
+// SEGMENTO
+function obterSegmento(cliente) {
+  return obterValor(cliente, [
+    'segmento',
+    'Segmento'
+  ]) || 'Não informado'
+}
+
+// NÍVEL
+function obterNivel(cliente) {
+  const nivel = obterValor(cliente, [
+    'nivel_cliente',
+    'nivel',
+    'Nível',
+    'Nivel',
+    'Nível Cliente'
+  ])
+
+  return String(nivel || '')
+    .trim()
+    .toUpperCase()
+}
+
+// FATURAMENTO
+function obterFaturamento(cliente) {
+  let valor = obterValor(cliente, [
+    'faturamento_anual',
+    'faturamento',
+    'Faturamento',
+    'Faturamento Anual',
+    'receita',
+    'Receita'
+  ])
+
+  if (
+    valor === '' ||
+    valor === null ||
+    valor === undefined
+  ) {
+    return 0
+  }
+
+  // Caso venha como número
+  if (typeof valor === 'number') {
+    return valor
+  }
+
+  valor = String(valor)
+    .replace('R$', '')
+    .trim()
+
+  // Exemplo:
+  // 100.000,50 -> 100000.50
+  if (
+    valor.includes('.') &&
+    valor.includes(',')
+  ) {
+    valor = valor
+      .replace(/\./g, '')
+      .replace(',', '.')
+  } else {
+    valor = valor.replace(',', '.')
+  }
+
+  const numero = Number(valor)
+
+  return Number.isNaN(numero)
+    ? 0
+    : numero
+}
+
+// CLIENTES A
+const clientesNivelA = computed(() => {
+  return clientes.value.filter(
+    cliente => obterNivel(cliente) === 'A'
+  ).length
+})
+
+// CLIENTES B
+const clientesNivelB = computed(() => {
+  return clientes.value.filter(
+    cliente => obterNivel(cliente) === 'B'
+  ).length
+})
+
+// CLIENTES C
+const clientesNivelC = computed(() => {
+  return clientes.value.filter(
+    cliente => obterNivel(cliente) === 'C'
+  ).length
+})
+
+// TOTAL FATURAMENTO
+const faturamentoTotal = computed(() => {
+  return clientes.value.reduce(
+    (total, cliente) => {
+      return total + obterFaturamento(cliente)
+    },
+    0
+  )
+})
+
+// FATURAMENTO MÉDIO
+const faturamentoMedio = computed(() => {
+  if (!clientes.value.length) {
+    return 0
+  }
+
+  return (
+    faturamentoTotal.value /
+    clientes.value.length
+  )
+})
+
+// FORMATADOR
+function formatarMoeda(valor) {
+  return new Intl.NumberFormat(
+    'pt-BR',
+    {
+      style: 'currency',
+      currency: 'BRL'
+    }
+  ).format(valor || 0)
+}
+
+// SEGMENTOS
+const segmentos = computed(() => {
+  const resultado = {}
+
+  clientes.value.forEach(cliente => {
+    const segmento =
+      obterSegmento(cliente)
+
+    if (!resultado[segmento]) {
+      resultado[segmento] = 0
+    }
+
+    resultado[segmento]++
+  })
+
+  return Object.entries(resultado)
+    .sort((a, b) => b[1] - a[1])
+})
+
+// MAIOR SEGMENTO
+const maiorSegmento = computed(() => {
+  if (!segmentos.value.length) {
+    return 'Sem dados'
+  }
+
+  return segmentos.value[0][0]
+})
+
+// PORCENTAGEM PARA BARRAS
+function porcentagem(valor) {
+  if (!totalClientes.value) {
+    return 0
+  }
+
+  return Math.round(
+    (valor / totalClientes.value) * 100
+  )
+}
+
+// ÚLTIMOS REGISTROS
+const ultimosClientes = computed(() => {
+  return clientes.value.slice(0, 6)
 })
 </script>
 
 <template>
-  <div class="min-h-screen bg-[#0a0a08] text-white font-['Inter',sans-serif] flex overflow-hidden relative">
-    
-    <!-- CANVAS DO GRÁFICO ESTÁTICO AO FUNDO -->
-    <canvas id="bg-chart-canvas" class="absolute inset-0 h-full w-full pointer-events-none z-0"></canvas>
+  <main
+    class="
+      min-h-screen
+      bg-[#0a0a08]
+      px-6
+      py-8
+      text-white
+    "
+  >
+    <div class="mx-auto max-w-7xl">
 
-    <!-- SIDEBAR COM PLANILHA EM GRADE E PARTÍCULAS -->
-    <aside :class="sidebarOpen ? 'w-64' : 'w-20'" class="relative z-20 border-r border-white/10 bg-[#0a0a08]/75 backdrop-blur-xl flex flex-col transition-all duration-300 overflow-hidden">
-      
-      <canvas id="sidebar-canvas" class="absolute inset-0 h-full w-full pointer-events-none z-0"></canvas>
-      <div class="absolute inset-0 bg-[#0a0a08]/65 pointer-events-none z-0"></div>
+      <!-- HEADER -->
+      <header
+        class="
+          mb-8
+          flex
+          flex-col
+          justify-between
+          gap-5
 
-      <!-- Topo da Sidebar / Logo -->
-      <div class="relative z-10 p-6 flex items-center justify-between border-b border-white/5">
-        <div class="flex items-center gap-3 overflow-hidden">
-          <div class="w-8 h-8 rounded-xl bg-[#5a9682] flex items-center justify-center shrink-0 shadow-[0_0_15px_rgba(90,150,130,0.3)]">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0a0a08" stroke-width="2.5">
-              <path d="M5 12h14M13 6l6 6-6 6"/>
+          md:flex-row
+          md:items-end
+        "
+      >
+        <div>
+          <h1
+            class="
+              text-3xl
+              font-semibold
+              tracking-tight
+            "
+          >
+            Dashboard
+          </h1>
+
+          <p
+            class="
+              mt-2
+              text-sm
+              text-neutral-400
+            "
+          >
+            Visão geral dos dados importados da planilha.
+          </p>
+        </div>
+
+        <router-link
+          to="/upload"
+          class="
+            inline-flex
+            items-center
+            justify-center
+            gap-2
+            rounded-xl
+            bg-[#5a9682]
+            px-5
+            py-2.5
+            text-sm
+            font-medium
+            text-[#0a0a08]
+            transition
+
+            hover:bg-[#6aa58f]
+          "
+        >
+          <svg
+            class="h-4 w-4"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path d="M12 5v14"/>
+            <path d="M5 12h14"/>
+          </svg>
+
+          Importar planilha
+        </router-link>
+      </header>
+
+      <!-- SEM DADOS -->
+      <section
+        v-if="!upload.temDados"
+        class="
+          flex
+          min-h-[420px]
+          items-center
+          justify-center
+          rounded-2xl
+          border
+          border-white/10
+          bg-white/[0.025]
+        "
+      >
+        <div class="max-w-md text-center">
+
+          <div
+            class="
+              mx-auto
+              flex
+              h-14
+              w-14
+              items-center
+              justify-center
+              rounded-xl
+              bg-[#5a9682]/15
+              text-[#8fc0ae]
+            "
+          >
+            <svg
+              class="h-6 w-6"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+            >
+              <path d="M7 3h10l4 4v14H7z"/>
+              <path d="M17 3v5h5"/>
+              <path d="M10 13h7"/>
+              <path d="M10 17h5"/>
             </svg>
           </div>
-          <span v-if="sidebarOpen" class="font-['Sora',sans-serif] text-lg font-bold tracking-tight text-white whitespace-nowrap">
-            CTI<span class="text-[#8fc0ae]">.RUN</span>
-          </span>
+
+          <h2
+            class="
+              mt-5
+              text-lg
+              font-semibold
+            "
+          >
+            Nenhuma planilha processada
+          </h2>
+
+          <p
+            class="
+              mt-2
+              text-sm
+              leading-6
+              text-neutral-400
+            "
+          >
+            Importe uma planilha para visualizar
+            os indicadores e dados no dashboard.
+          </p>
+
+          <router-link
+            to="/upload"
+            class="
+              mt-6
+              inline-flex
+              rounded-xl
+              bg-[#5a9682]
+              px-5
+              py-2.5
+              text-sm
+              font-medium
+              text-[#0a0a08]
+              transition
+
+              hover:bg-[#6aa58f]
+            "
+          >
+            Importar dados
+          </router-link>
+
         </div>
-      </div>
+      </section>
 
-      <!-- Links de Navegação da Sidebar -->
-      <nav class="relative z-10 flex-1 px-4 py-6 space-y-2">
-        <router-link 
-          to="/dashboard" 
-          class="flex items-center gap-3 px-4 py-3 rounded-xl bg-[#5a9682]/15 border border-[#5a9682]/30 text-[#8fc0ae] font-medium text-sm transition-all shadow-[0_0_15px_rgba(90,150,130,0.1)]"
+      <!-- CONTEÚDO -->
+      <template v-else>
+
+        <!-- KPIs -->
+        <section
+          class="
+            grid
+            gap-4
+
+            sm:grid-cols-2
+            xl:grid-cols-4
+          "
         >
-          <span class="text-lg">📊</span>
-          <span v-if="sidebarOpen" class="whitespace-nowrap">Dashboard</span>
-        </router-link>
 
-        <router-link 
-          to="/upload" 
-          class="flex items-center gap-3 px-4 py-3 rounded-xl text-neutral-400 hover:text-white hover:bg-white/[0.03] font-medium text-sm transition-all"
-        >
-          <span class="text-lg">📂</span>
-          <span v-if="sidebarOpen" class="whitespace-nowrap">Upload de Planilha</span>
-        </router-link>
+          <!-- TOTAL CLIENTES -->
+          <article
+            class="
+              rounded-2xl
+              border
+              border-white/10
+              bg-white/[0.03]
+              p-5
+            "
+          >
+            <div
+              class="
+                flex
+                items-start
+                justify-between
+              "
+            >
 
-        <router-link 
-          to="/relatorios" 
-          class="flex items-center gap-3 px-4 py-3 rounded-xl text-neutral-400 hover:text-white hover:bg-white/[0.03] font-medium text-sm transition-all"
-        >
-          <span class="text-lg">📄</span>
-          <span v-if="sidebarOpen" class="whitespace-nowrap">Relatórios</span>
-        </router-link>
+              <div>
+                <p
+                  class="
+                    text-sm
+                    text-neutral-400
+                  "
+                >
+                  Total de clientes
+                </p>
 
-        <router-link 
-          to="/graficos" 
-          class="flex items-center gap-3 px-4 py-3 rounded-xl text-neutral-400 hover:text-white hover:bg-white/[0.03] font-medium text-sm transition-all"
-        >
-          <span class="text-lg">📈</span>
-          <span v-if="sidebarOpen" class="whitespace-nowrap">Gráficos</span>
-        </router-link>
-      </nav>
+                <p
+                  class="
+                    mt-4
+                    text-3xl
+                    font-semibold
+                  "
+                >
+                  {{ totalClientes }}
+                </p>
+              </div>
 
-      <!-- Rodapé da Sidebar / Sair -->
-      <div class="relative z-10 p-4 border-t border-white/5 flex items-center justify-between">
-        <router-link 
-          to="/login" 
-          class="flex items-center gap-3 px-3 py-2 rounded-xl text-red-400 hover:bg-red-500/10 text-sm font-medium transition-all w-full"
-        >
-          <span class="text-lg">🚪</span>
-          <span v-if="sidebarOpen" class="whitespace-nowrap">Sair</span>
-        </router-link>
-      </div>
+              <div
+                class="
+                  flex
+                  h-9
+                  w-9
+                  items-center
+                  justify-center
+                  rounded-lg
+                  bg-[#5a9682]/15
+                  text-[#8fc0ae]
+                "
+              >
+                <svg
+                  class="h-4 w-4"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                >
+                  <path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/>
+                  <circle cx="9" cy="7" r="4"/>
+                  <path d="M22 21v-2a4 4 0 00-3-3.87"/>
+                </svg>
+              </div>
 
-    </aside>
-
-    <!-- CONTEÚDO PRINCIPAL DA PÁGINA -->
-    <main class="flex-1 min-h-screen p-8 overflow-y-auto relative z-10">
-      <div class="max-w-6xl mx-auto">
-
-        <!-- Cabeçalho do Dashboard -->
-        <header class="mb-8 flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
-          <div>
-            <div class="mb-3 inline-flex items-center gap-2 rounded-full border border-[#5a9682]/40 bg-[#0a0a08]/40 backdrop-blur-md px-3 py-1 text-xs font-medium text-[#8fc0ae] shadow-[0_0_15px_rgba(90,150,130,0.15)]">
-              <span class="h-2 w-2 rounded-full bg-[#3fb890] animate-pulse"></span>
-              CTI.RUN Insights
             </div>
-            <h1 class="text-4xl font-extrabold tracking-tight font-['Sora',sans-serif]">
-              Dashboard
-            </h1>
-            <p class="mt-1 text-neutral-400">
-              Visão geral dos dados analisados e métricas estratégicas.
+
+            <p
+              class="
+                mt-5
+                border-t
+                border-white/[0.06]
+                pt-4
+                text-xs
+                text-neutral-500
+              "
+            >
+              Registros da planilha atual
             </p>
+          </article>
+
+          <!-- FATURAMENTO -->
+          <article
+            class="
+              rounded-2xl
+              border
+              border-white/10
+              bg-white/[0.03]
+              p-5
+            "
+          >
+            <div
+              class="
+                flex
+                items-start
+                justify-between
+              "
+            >
+
+              <div>
+                <p class="text-sm text-neutral-400">
+                  Faturamento médio
+                </p>
+
+                <p
+                  class="
+                    mt-4
+                    text-2xl
+                    font-semibold
+                  "
+                >
+                  {{ formatarMoeda(faturamentoMedio) }}
+                </p>
+              </div>
+
+              <div
+                class="
+                  flex
+                  h-9
+                  w-9
+                  items-center
+                  justify-center
+                  rounded-lg
+                  bg-[#5a9682]/15
+                  text-[#8fc0ae]
+                "
+              >
+                $
+              </div>
+
+            </div>
+
+            <p
+              class="
+                mt-5
+                border-t
+                border-white/[0.06]
+                pt-4
+                text-xs
+                text-neutral-500
+              "
+            >
+              Média entre os registros
+            </p>
+          </article>
+
+          <!-- NIVEL A -->
+          <article
+            class="
+              rounded-2xl
+              border
+              border-white/10
+              bg-white/[0.03]
+              p-5
+            "
+          >
+            <div
+              class="
+                flex
+                items-start
+                justify-between
+              "
+            >
+
+              <div>
+                <p class="text-sm text-neutral-400">
+                  Clientes nível A
+                </p>
+
+                <p
+                  class="
+                    mt-4
+                    text-3xl
+                    font-semibold
+                  "
+                >
+                  {{ clientesNivelA }}
+                </p>
+              </div>
+
+              <div
+                class="
+                  flex
+                  h-9
+                  w-9
+                  items-center
+                  justify-center
+                  rounded-lg
+                  bg-[#5a9682]/15
+                  text-sm
+                  font-semibold
+                  text-[#8fc0ae]
+                "
+              >
+                A
+              </div>
+
+            </div>
+
+            <p
+              class="
+                mt-5
+                border-t
+                border-white/[0.06]
+                pt-4
+                text-xs
+                text-neutral-500
+              "
+            >
+              Alta prioridade
+            </p>
+          </article>
+
+          <!-- MAIOR SEGMENTO -->
+          <article
+            class="
+              rounded-2xl
+              border
+              border-white/10
+              bg-white/[0.03]
+              p-5
+            "
+          >
+            <p class="text-sm text-neutral-400">
+              Maior segmento
+            </p>
+
+            <p
+              class="
+                mt-4
+                truncate
+                text-2xl
+                font-semibold
+              "
+            >
+              {{ maiorSegmento }}
+            </p>
+
+            <p
+              class="
+                mt-5
+                border-t
+                border-white/[0.06]
+                pt-4
+                text-xs
+                text-neutral-500
+              "
+            >
+              Segmento mais frequente
+            </p>
+          </article>
+
+        </section>
+
+        <!-- SEGUNDA LINHA -->
+        <section
+          class="
+            mt-6
+            grid
+            gap-6
+
+            xl:grid-cols-2
+          "
+        >
+
+          <!-- CLASSIFICAÇÃO -->
+          <article
+            class="
+              rounded-2xl
+              border
+              border-white/10
+              bg-white/[0.03]
+              p-6
+            "
+          >
+            <h2
+              class="
+                font-semibold
+              "
+            >
+              Classificação dos clientes
+            </h2>
+
+            <p
+              class="
+                mt-1
+                text-sm
+                text-neutral-400
+              "
+            >
+              Distribuição entre os níveis A, B e C.
+            </p>
+
+            <div class="mt-8 space-y-6">
+
+              <!-- A -->
+              <div>
+
+                <div
+                  class="
+                    mb-2
+                    flex
+                    items-center
+                    justify-between
+                  "
+                >
+                  <span
+                    class="
+                      text-sm
+                      text-neutral-300
+                    "
+                  >
+                    Nível A
+                  </span>
+
+                  <span class="text-sm">
+                    {{ clientesNivelA }}
+                  </span>
+                </div>
+
+                <div
+                  class="
+                    h-2
+                    overflow-hidden
+                    rounded-full
+                    bg-white/[0.06]
+                  "
+                >
+                  <div
+                    class="
+                      h-full
+                      rounded-full
+                      bg-[#5a9682]
+                    "
+                    :style="{
+                      width: `${porcentagem(clientesNivelA)}%`
+                    }"
+                  ></div>
+                </div>
+
+                <p
+                  class="
+                    mt-2
+                    text-right
+                    text-xs
+                    text-neutral-500
+                  "
+                >
+                  {{ porcentagem(clientesNivelA) }}%
+                </p>
+
+              </div>
+
+              <!-- B -->
+              <div>
+
+                <div
+                  class="
+                    mb-2
+                    flex
+                    items-center
+                    justify-between
+                  "
+                >
+                  <span class="text-sm text-neutral-300">
+                    Nível B
+                  </span>
+
+                  <span class="text-sm">
+                    {{ clientesNivelB }}
+                  </span>
+                </div>
+
+                <div
+                  class="
+                    h-2
+                    overflow-hidden
+                    rounded-full
+                    bg-white/[0.06]
+                  "
+                >
+                  <div
+                    class="
+                      h-full
+                      rounded-full
+                      bg-[#487766]
+                    "
+                    :style="{
+                      width: `${porcentagem(clientesNivelB)}%`
+                    }"
+                  ></div>
+                </div>
+
+                <p
+                  class="
+                    mt-2
+                    text-right
+                    text-xs
+                    text-neutral-500
+                  "
+                >
+                  {{ porcentagem(clientesNivelB) }}%
+                </p>
+
+              </div>
+
+              <!-- C -->
+              <div>
+
+                <div
+                  class="
+                    mb-2
+                    flex
+                    items-center
+                    justify-between
+                  "
+                >
+                  <span class="text-sm text-neutral-300">
+                    Nível C
+                  </span>
+
+                  <span class="text-sm">
+                    {{ clientesNivelC }}
+                  </span>
+                </div>
+
+                <div
+                  class="
+                    h-2
+                    overflow-hidden
+                    rounded-full
+                    bg-white/[0.06]
+                  "
+                >
+                  <div
+                    class="
+                      h-full
+                      rounded-full
+                      bg-neutral-600
+                    "
+                    :style="{
+                      width: `${porcentagem(clientesNivelC)}%`
+                    }"
+                  ></div>
+                </div>
+
+                <p
+                  class="
+                    mt-2
+                    text-right
+                    text-xs
+                    text-neutral-500
+                  "
+                >
+                  {{ porcentagem(clientesNivelC) }}%
+                </p>
+
+              </div>
+
+            </div>
+          </article>
+
+          <!-- SEGMENTOS -->
+          <article
+            class="
+              rounded-2xl
+              border
+              border-white/10
+              bg-white/[0.03]
+              p-6
+            "
+          >
+            <h2 class="font-semibold">
+              Segmentos
+            </h2>
+
+            <p
+              class="
+                mt-1
+                text-sm
+                text-neutral-400
+              "
+            >
+              Distribuição dos clientes por segmento.
+            </p>
+
+            <div
+              v-if="segmentos.length"
+              class="
+                mt-8
+                space-y-5
+              "
+            >
+
+              <div
+                v-for="([segmento, quantidade]) in segmentos"
+                :key="segmento"
+              >
+
+                <div
+                  class="
+                    mb-2
+                    flex
+                    items-center
+                    justify-between
+                  "
+                >
+                  <span
+                    class="
+                      text-sm
+                      text-neutral-300
+                    "
+                  >
+                    {{ segmento }}
+                  </span>
+
+                  <span
+                    class="
+                      text-xs
+                      text-neutral-500
+                    "
+                  >
+                    {{ quantidade }}
+                  </span>
+                </div>
+
+                <div
+                  class="
+                    h-2
+                    overflow-hidden
+                    rounded-full
+                    bg-white/[0.06]
+                  "
+                >
+                  <div
+                    class="
+                      h-full
+                      rounded-full
+                      bg-[#5a9682]
+                    "
+                    :style="{
+                      width: `${porcentagem(quantidade)}%`
+                    }"
+                  ></div>
+                </div>
+
+              </div>
+
+            </div>
+
+            <p
+              v-else
+              class="
+                mt-10
+                text-center
+                text-sm
+                text-neutral-500
+              "
+            >
+              Nenhum segmento encontrado.
+            </p>
+
+          </article>
+
+        </section>
+
+        <!-- FATURAMENTO -->
+        <section
+          class="
+            mt-6
+            rounded-2xl
+            border
+            border-white/10
+            bg-white/[0.03]
+            p-6
+          "
+        >
+          <div
+            class="
+              flex
+              flex-col
+              justify-between
+              gap-4
+
+              sm:flex-row
+              sm:items-center
+            "
+          >
+            <div>
+              <h2 class="font-semibold">
+                Resumo financeiro
+              </h2>
+
+              <p
+                class="
+                  mt-1
+                  text-sm
+                  text-neutral-400
+                "
+              >
+                Informações calculadas a partir da planilha.
+              </p>
+            </div>
+
+            <span
+              class="
+                rounded-lg
+                border
+                border-white/[0.07]
+                bg-white/[0.03]
+                px-3
+                py-2
+                text-xs
+                text-neutral-400
+              "
+            >
+              {{ totalClientes }} registros
+            </span>
           </div>
 
-          <!-- Botão para recolher/expandir a sidebar -->
-          <button 
-            @click="sidebarOpen = !sidebarOpen"
-            class="px-4 py-2 rounded-xl border border-white/10 bg-[#0a0a08]/40 backdrop-blur-md text-xs text-neutral-300 hover:bg-white/[0.08] transition"
+          <div
+            class="
+              mt-6
+              grid
+              gap-4
+
+              md:grid-cols-2
+            "
           >
-            {{ sidebarOpen ? '◀ Recolher Menu' : '▶ Expandir' }}
-          </button>
-        </header>
 
-        <!-- Cards de Indicadores (Efeito Vidro Mais Transparente) -->
-        <section class="grid gap-5 md:grid-cols-2 lg:grid-cols-4">
-          <article class="rounded-2xl border border-white/10 bg-[#0a0a08]/50 p-6 shadow-2xl backdrop-blur-md transition-all duration-300 hover:border-[#5a9682]/60 hover:shadow-[0_0_25px_rgba(90,150,130,0.2)]">
-            <p class="text-xs uppercase tracking-wider text-neutral-400 font-medium">Total de clientes</p>
-            <p class="mt-3 text-3xl font-extrabold text-white">0</p>
-          </article>
+            <div
+              class="
+                rounded-xl
+                border
+                border-white/[0.07]
+                bg-[#0d0d0b]
+                p-5
+              "
+            >
+              <p class="text-sm text-neutral-400">
+                Faturamento total
+              </p>
 
-          <article class="rounded-2xl border border-white/10 bg-[#0a0a08]/50 p-6 shadow-2xl backdrop-blur-md transition-all duration-300 hover:border-[#5a9682]/60 hover:shadow-[0_0_25px_rgba(90,150,130,0.2)]">
-            <p class="text-xs uppercase tracking-wider text-neutral-400 font-medium">Faturamento médio</p>
-            <p class="mt-3 text-3xl font-extrabold text-white">R$ 0,00</p>
-          </article>
+              <p
+                class="
+                  mt-3
+                  text-2xl
+                  font-semibold
+                "
+              >
+                {{ formatarMoeda(faturamentoTotal) }}
+              </p>
+            </div>
 
-          <article class="rounded-2xl border border-white/10 bg-[#0a0a08]/50 p-6 shadow-2xl backdrop-blur-md transition-all duration-300 hover:border-[#5a9682]/60 hover:shadow-[0_0_25px_rgba(90,150,130,0.2)]">
-            <p class="text-xs uppercase tracking-wider text-neutral-400 font-medium">Serviços ativos</p>
-            <p class="mt-3 text-3xl font-extrabold text-white">0</p>
-          </article>
+            <div
+              class="
+                rounded-xl
+                border
+                border-white/[0.07]
+                bg-[#0d0d0b]
+                p-5
+              "
+            >
+              <p class="text-sm text-neutral-400">
+                Faturamento médio
+              </p>
 
-          <article class="rounded-2xl border border-[#5a9682]/40 bg-[#0a0a08]/60 p-6 shadow-[0_0_30px_rgba(90,150,130,0.15)] backdrop-blur-md transition-all duration-300 hover:border-[#5a9682]">
-            <p class="text-xs uppercase tracking-wider text-[#8fc0ae] font-medium">Clientes nível A</p>
-            <p class="mt-3 text-3xl font-extrabold text-[#6ee7b7] drop-shadow-[0_0_10px_rgba(110,231,183,0.3)]">0</p>
-          </article>
+              <p
+                class="
+                  mt-3
+                  text-2xl
+                  font-semibold
+                "
+              >
+                {{ formatarMoeda(faturamentoMedio) }}
+              </p>
+            </div>
+
+          </div>
         </section>
 
-        <!-- Seção de Gráficos (Efeito Vidro Mais Transparente) -->
-        <section class="mt-8 grid gap-6 lg:grid-cols-2">
-          <article class="min-h-72 rounded-2xl border border-white/10 bg-[#0a0a08]/50 p-6 shadow-2xl backdrop-blur-md">
-            <h2 class="text-xl font-bold text-white font-['Sora',sans-serif]">Distribuição por segmento</h2>
-            <div class="mt-8 flex h-48 items-center justify-center rounded-xl border border-dashed border-white/10 text-neutral-500 bg-white/[0.01]">
-              Gráfico será implementado aqui
-            </div>
-          </article>
+        <!-- TABELA -->
+        <section
+          class="
+            mt-6
+            overflow-hidden
+            rounded-2xl
+            border
+            border-white/10
+            bg-white/[0.03]
+          "
+        >
 
-          <article class="min-h-72 rounded-2xl border border-white/10 bg-[#0a0a08]/50 p-6 shadow-2xl backdrop-blur-md">
-            <h2 class="text-xl font-bold text-white font-['Sora',sans-serif]">Evolução de clientes</h2>
-            <div class="mt-8 flex h-48 items-center justify-center rounded-xl border border-dashed border-white/10 text-neutral-500 bg-white/[0.01]">
-              Gráfico será implementado aqui
+          <div
+            class="
+              flex
+              items-center
+              justify-between
+              border-b
+              border-white/[0.07]
+              p-6
+            "
+          >
+            <div>
+              <h2 class="font-semibold">
+                Registros recentes
+              </h2>
+
+              <p
+                class="
+                  mt-1
+                  text-sm
+                  text-neutral-400
+                "
+              >
+                Primeiros registros importados da planilha.
+              </p>
             </div>
-          </article>
+
+            <span
+              class="
+                rounded-lg
+                bg-[#5a9682]/10
+                px-3
+                py-1.5
+                text-xs
+                text-[#8fc0ae]
+              "
+            >
+              {{ totalClientes }} registros
+            </span>
+          </div>
+
+          <div class="overflow-x-auto">
+
+            <table
+              class="
+                w-full
+                text-left
+                text-sm
+              "
+            >
+
+              <thead
+                class="
+                  bg-[#0d0d0b]
+                  text-xs
+                  text-neutral-500
+                "
+              >
+                <tr>
+                  <th class="px-6 py-4 font-medium">
+                    Cliente
+                  </th>
+
+                  <th class="px-6 py-4 font-medium">
+                    Consultor
+                  </th>
+
+                  <th class="px-6 py-4 font-medium">
+                    Segmento
+                  </th>
+
+                  <th class="px-6 py-4 font-medium">
+                    Nível
+                  </th>
+
+                  <th class="px-6 py-4 font-medium">
+                    Faturamento
+                  </th>
+                </tr>
+              </thead>
+
+              <tbody>
+
+                <tr
+                  v-for="(cliente, index) in ultimosClientes"
+                  :key="index"
+                  class="
+                    border-t
+                    border-white/[0.05]
+                    transition
+
+                    hover:bg-white/[0.02]
+                  "
+                >
+
+                  <td
+                    class="
+                      px-6
+                      py-4
+                      font-medium
+                    "
+                  >
+                    {{ obterNome(cliente) }}
+                  </td>
+
+                  <td
+                    class="
+                      px-6
+                      py-4
+                      text-neutral-400
+                    "
+                  >
+                    {{ obterConsultor(cliente) }}
+                  </td>
+
+                  <td
+                    class="
+                      px-6
+                      py-4
+                      text-neutral-400
+                    "
+                  >
+                    {{ obterSegmento(cliente) }}
+                  </td>
+
+                  <td class="px-6 py-4">
+
+                    <span
+                      :class="[
+                        `
+                          inline-flex
+                          min-w-7
+                          items-center
+                          justify-center
+                          rounded-md
+                          px-2
+                          py-1
+                          text-xs
+                          font-medium
+                        `,
+                        obterNivel(cliente) === 'A'
+                          ? `
+                            bg-[#5a9682]/15
+                            text-[#8fc0ae]
+                          `
+                          : obterNivel(cliente) === 'B'
+                            ? `
+                              bg-white/[0.06]
+                              text-neutral-300
+                            `
+                            : `
+                              bg-white/[0.04]
+                              text-neutral-500
+                            `
+                      ]"
+                    >
+                      {{ obterNivel(cliente) || '-' }}
+                    </span>
+
+                  </td>
+
+                  <td
+                    class="
+                      px-6
+                      py-4
+                      text-neutral-300
+                    "
+                  >
+                    {{ formatarMoeda(obterFaturamento(cliente)) }}
+                  </td>
+
+                </tr>
+
+              </tbody>
+
+            </table>
+
+          </div>
+
         </section>
 
-      </div>
-    </main>
+      </template>
 
-  </div>
+    </div>
+  </main>
 </template>

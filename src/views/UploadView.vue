@@ -1,230 +1,869 @@
 <script setup>
-import { ref, onMounted } from 'vue'
 
-// Estado para controle do arquivo selecionado e simulação de envio
-const selectedFile = ref(null)
+import { computed, ref } from 'vue'
+
+import { useRouter } from 'vue-router'
+ 
+import { useUploadStore } from '../stores/uploadStore'
+ 
+const upload = useUploadStore()
+ 
+const router = useRouter()
+ 
 const isDragging = ref(false)
-const isUploading = ref(false)
+ 
 const uploadSuccess = ref(false)
+ 
+const selectedFile = computed(() => {
 
-// Gerenciamento de arrastar e soltar (Drag and Drop)
-const handleDrop = (e) => {
-  isDragging.value = false
-  const files = e.dataTransfer.files
-  if (files.length > 0) {
-    selectedFile.value = files[0]
-    uploadSuccess.value = false
-  }
-}
+  return upload.arquivo
 
-const handleFileSelect = (e) => {
-  const files = e.target.files
-  if (files.length > 0) {
-    selectedFile.value = files[0]
-    uploadSuccess.value = false
-  }
-}
-
-// Simulação de processamento / upload da planilha
-const simulateUpload = () => {
-  if (!selectedFile.value) return
-  isUploading.value = true
-  
-  setTimeout(() => {
-    isUploading.value = false
-    uploadSuccess.value = true
-  }, 2000)
-}
-
-// Canvas de partículas ao fundo mantendo a identidade visual
-onMounted(() => {
-  const canvas = document.getElementById('bg-canvas')
-  if (!canvas) return
-  const ctx = canvas.getContext('2d')
-  let w, h, points
-
-  function resize() {
-    w = canvas.width = canvas.offsetWidth
-    h = canvas.height = canvas.offsetHeight
-  }
-
-  function initPoints() {
-    const count = Math.floor((w * h) / 9000)
-    points = Array.from({ length: count }, () => ({
-      x: Math.random() * w,
-      y: Math.random() * h,
-      vx: (Math.random() - 0.5) * 0.25,
-      vy: (Math.random() - 0.5) * 0.25,
-      r: Math.random() * 1.2 + 0.5
-    }))
-  }
-
-  function step() {
-    ctx.clearRect(0, 0, w, h)
-    for (const p of points) {
-      p.x += p.vx
-      p.y += p.vy
-      if (p.x < 0 || p.x > w) p.vx *= -1
-      if (p.y < 0 || p.y > h) p.vy *= -1
-    }
-    for (let i = 0; i < points.length; i++) {
-      for (let j = i + 1; j < points.length; j++) {
-        const a = points[i], b = points[j]
-        const dx = a.x - b.x, dy = a.y - b.y
-        const dist = Math.sqrt(dx * dx + dy * dy)
-        if (dist < 130) {
-          ctx.strokeStyle = `rgba(90,150,130,${0.14 * (1 - dist / 130)})`
-          ctx.lineWidth = 1
-          ctx.beginPath()
-          ctx.moveTo(a.x, a.y)
-          ctx.lineTo(b.x, b.y)
-          ctx.stroke()
-        }
-      }
-    }
-    for (const p of points) {
-      ctx.fillStyle = 'rgba(255,255,255,0.5)'
-      ctx.beginPath()
-      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2)
-      ctx.fill()
-    }
-    requestAnimationFrame(step)
-  }
-
-  window.addEventListener('resize', () => { resize(); initPoints(); })
-  resize()
-  initPoints()
-  step()
 })
+ 
+const fileSize = computed(() => {
+
+  if (!upload.arquivo) {
+
+    return ''
+
+  }
+ 
+  return `${(
+
+    upload.arquivo.size / 1024
+
+  ).toFixed(1)} KB`
+
+})
+ 
+function handleDrop(event) {
+
+  isDragging.value = false
+ 
+  const files =
+
+    event.dataTransfer.files
+ 
+  if (files.length > 0) {
+
+    upload.selecionarArquivo(
+
+      files[0]
+
+    )
+ 
+    uploadSuccess.value = false
+
+  }
+
+}
+ 
+function handleFileSelect(event) {
+
+  const files =
+
+    event.target.files
+ 
+  if (files.length > 0) {
+
+    upload.selecionarArquivo(
+
+      files[0]
+
+    )
+ 
+    uploadSuccess.value = false
+
+  }
+
+}
+ 
+function removerArquivo() {
+
+  upload.removerArquivo()
+ 
+  uploadSuccess.value = false
+
+}
+ 
+async function processar() {
+
+  const sucesso =
+
+    await upload.processarArquivo()
+ 
+  if (sucesso) {
+
+    uploadSuccess.value = true
+
+  }
+
+}
+ 
+function irDashboard() {
+
+  router.push('/dashboard')
+
+}
 </script>
-
+ 
 <template>
-  <main class="relative min-h-screen overflow-hidden bg-[#0a0a08] text-white font-['Inter',sans-serif]">
-    
-    <!-- Canvas de partículas ao fundo -->
-    <canvas id="bg-canvas" class="absolute inset-0 h-full w-full pointer-events-none z-0"></canvas>
+<main
 
-    <!-- Gradiente de overlay -->
-    <div class="absolute inset-0 bg-gradient-to-b from-[#0a0a08]/40 via-transparent to-[#0a0a08] pointer-events-none z-0"></div>
+    class="
 
-    <div class="relative z-10 max-w-5xl mx-auto px-6 py-8">
+      relative
 
-      <!-- Cabeçalho da Página / Voltar ao Dashboard -->
-      <div class="flex items-center justify-between mb-12">
+      min-h-screen
+
+      overflow-hidden
+
+      bg-[#0a0a08]
+
+      px-6
+
+      py-8
+
+      text-white
+
+    "
+>
+ 
+    <div class="mx-auto max-w-5xl">
+ 
+      <!-- HEADER -->
+<div
+
+        class="
+
+          mb-12
+
+          flex
+
+          items-center
+
+          justify-between
+
+        "
+>
+ 
         <div class="flex items-center gap-3">
-          <router-link 
-            to="/dashboard" 
-            class="w-9 h-9 rounded-xl bg-white/[0.05] border border-white/10 flex items-center justify-center hover:bg-white/[0.1] transition-colors"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M19 12H5M12 19l-7-7 7-7"/>
-            </svg>
-          </router-link>
+ 
+          <router-link
+
+            to="/dashboard"
+
+            class="
+
+              flex
+
+              h-9
+
+              w-9
+
+              items-center
+
+              justify-center
+
+              rounded-xl
+
+              border
+
+              border-white/10
+
+              bg-white/[0.05]
+
+              transition
+ 
+              hover:bg-white/[0.1]
+
+            "
+>
+<svg
+
+              width="16"
+
+              height="16"
+
+              viewBox="0 0 24 24"
+
+              fill="none"
+
+              stroke="currentColor"
+
+              stroke-width="2"
+>
+<path d="M19 12H5M12 19l-7-7 7-7"/>
+</svg>
+</router-link>
+ 
           <div>
-            <h1 class="font-['Sora',sans-serif] text-xl font-semibold tracking-tight">Upload de Planilha</h1>
-            <p class="text-xs text-neutral-400">Importe seus dados de produção ou controle para o sistema</p>
-          </div>
-        </div>
+<h1
 
-        <span class="text-xs bg-[#5a9682]/15 text-[#8fc0ae] border border-[#5a9682]/30 px-3 py-1.5 rounded-lg font-medium">
+              class="
+
+                text-xl
+
+                font-semibold
+
+                tracking-tight
+
+              "
+>
+
+              Upload de Planilha
+</h1>
+ 
+            <p
+
+              class="
+
+                text-xs
+
+                text-neutral-400
+
+              "
+>
+
+              Importe seus dados para o sistema
+</p>
+</div>
+ 
+        </div>
+ 
+        <span
+
+          class="
+
+            rounded-lg
+
+            border
+
+            border-[#5a9682]/30
+
+            bg-[#5a9682]/15
+
+            px-3
+
+            py-1.5
+
+            text-xs
+
+            font-medium
+
+            text-[#8fc0ae]
+
+          "
+>
+
           Módulo de Importação
-        </span>
+</span>
+ 
       </div>
+ 
+      <!-- CONTAINER -->
+<div class="mx-auto max-w-2xl">
+ 
+        <div
 
-      <!-- Container Principal de Upload -->
-      <div class="max-w-2xl mx-auto">
-        <div class="rounded-2xl border border-white/10 bg-[#0a0a08]/85 backdrop-blur-md p-8 shadow-2xl">
-          
-          <!-- Área de Arrastar e Soltar (Drag & Drop) -->
-          <div 
+          class="
+
+            rounded-2xl
+
+            border
+
+            border-white/10
+
+            bg-[#0a0a08]/85
+
+            p-8
+
+          "
+>
+ 
+          <!-- DROP -->
+<div
+
             @dragover.prevent="isDragging = true"
+
             @dragleave.prevent="isDragging = false"
+
             @drop.prevent="handleDrop"
+ 
             :class="[
-              'border-2 border-dashed rounded-xl p-10 text-center transition-all cursor-pointer relative flex flex-col items-center justify-center',
-              isDragging ? 'border-[#5a9682] bg-[#5a9682]/10' : 'border-white/15 hover:border-[#5a9682]/50 bg-white/[0.02]'
+
+              `
+
+              relative
+
+              flex
+
+              cursor-pointer
+
+              flex-col
+
+              items-center
+
+              justify-center
+
+              rounded-xl
+
+              border-2
+
+              border-dashed
+
+              p-10
+
+              text-center
+
+              transition-all
+
+              `,
+
+              isDragging
+
+                ? `
+
+                  border-[#5a9682]
+
+                  bg-[#5a9682]/10
+
+                `
+
+                : `
+
+                  border-white/15
+
+                  bg-white/[0.02]
+
+                  hover:border-[#5a9682]/50
+
+                `
+
             ]"
-          >
-            <input 
-              type="file" 
-              id="file-input" 
-              class="absolute inset-0 opacity-0 cursor-pointer w-full h-full" 
-              accept=".xlsx, .xls, .csv"
+>
+ 
+            <input
+
+              type="file"
+
+              class="
+
+                absolute
+
+                inset-0
+
+                h-full
+
+                w-full
+
+                cursor-pointer
+
+                opacity-0
+
+              "
+
+              accept=".xlsx,.xls,.csv"
+
               @change="handleFileSelect"
-            />
+>
+ 
+            <div
 
-            <!-- Ícone de Pasta / Upload -->
-            <div class="w-14 h-14 rounded-2xl bg-[#5a9682]/15 border border-[#5a9682]/30 flex items-center justify-center mb-4 text-[#8fc0ae] shadow-inner">
+              class="
+
+                mb-4
+
+                flex
+
+                h-14
+
+                w-14
+
+                items-center
+
+                justify-center
+
+                rounded-2xl
+
+                border
+
+                border-[#5a9682]/30
+
+                bg-[#5a9682]/15
+
+                text-[#8fc0ae]
+
+              "
+>
+
               📁
-            </div>
+</div>
+ 
+            <h3
 
-            <h3 class="font-['Sora',sans-serif] text-base font-semibold mb-1">
-              Arraste sua planilha aqui ou <span class="text-[#8fc0ae] underline underline-offset-4">procure no computador</span>
-            </h3>
-            <p class="text-xs text-neutral-400 max-w-xs mb-4">
-              Suporta arquivos no formato <strong class="text-neutral-200">.XLSX</strong>, <strong class="text-neutral-200">.XLS</strong> ou <strong class="text-neutral-200">.CSV</strong>
-            </p>
+              class="
 
-            <span class="text-[11px] text-neutral-500 bg-white/[0.04] px-3 py-1 rounded-full border border-white/5">
-              Tamanho máximo recomendado: 15MB
-            </span>
+                mb-1
+
+                text-base
+
+                font-semibold
+
+              "
+>
+
+              Arraste sua planilha aqui ou
+<span
+
+                class="
+
+                  text-[#8fc0ae]
+
+                  underline
+
+                  underline-offset-4
+
+                "
+>
+
+                procure no computador
+</span>
+</h3>
+ 
+            <p
+
+              class="
+
+                mb-4
+
+                max-w-xs
+
+                text-xs
+
+                text-neutral-400
+
+              "
+>
+
+              Arquivos XLSX, XLS ou CSV
+</p>
+ 
           </div>
+ 
+          <!-- ARQUIVO -->
+<div
 
-          <!-- Card do Arquivo Selecionado -->
-          <div v-if="selectedFile" class="mt-6 p-4 rounded-xl border border-white/10 bg-white/[0.03] flex items-center justify-between">
-            <div class="flex items-center gap-3 overflow-hidden">
-              <div class="w-10 h-10 rounded-lg bg-[#3fb890]/20 flex items-center justify-center text-[#6ee7b7] shrink-0 font-bold text-xs">
+            v-if="selectedFile"
+
+            class="
+
+              mt-6
+
+              flex
+
+              items-center
+
+              justify-between
+
+              rounded-xl
+
+              border
+
+              border-white/10
+
+              bg-white/[0.03]
+
+              p-4
+
+            "
+>
+ 
+            <div
+
+              class="
+
+                flex
+
+                min-w-0
+
+                items-center
+
+                gap-3
+
+              "
+>
+ 
+              <div
+
+                class="
+
+                  flex
+
+                  h-10
+
+                  w-10
+
+                  shrink-0
+
+                  items-center
+
+                  justify-center
+
+                  rounded-lg
+
+                  bg-[#3fb890]/20
+
+                "
+>
+
                 📊
-              </div>
+</div>
+ 
               <div class="truncate">
-                <p class="text-sm font-medium text-white truncate">{{ selectedFile.name }}</p>
-                <p class="text-xs text-neutral-400">{{ (selectedFile.size / 1024).toFixed(1) }} KB</p>
+ 
+                <p
+
+                  class="
+
+                    truncate
+
+                    text-sm
+
+                    font-medium
+
+                  "
+>
+
+                  {{ selectedFile.name }}
+</p>
+ 
+                <p
+
+                  class="
+
+                    text-xs
+
+                    text-neutral-400
+
+                  "
+>
+
+                  {{ fileSize }}
+</p>
+ 
               </div>
+ 
             </div>
+ 
+            <button
 
-            <button 
-              @click="selectedFile = null; uploadSuccess = false" 
-              class="text-xs text-neutral-400 hover:text-red-400 transition-colors p-2"
-            >
+              @click="removerArquivo"
+
+              class="
+
+                p-2
+
+                text-xs
+
+                text-neutral-400
+
+                transition
+ 
+                hover:text-red-400
+
+              "
+>
+
               Remover
-            </button>
+</button>
+ 
           </div>
+ 
+          <!-- ERRO -->
+<div
 
-          <!-- Mensagem de Sucesso -->
-          <div v-if="uploadSuccess" class="mt-6 p-4 rounded-xl bg-[#3fb890]/15 border border-[#3fb890]/30 text-[#6ee7b7] text-sm flex items-center gap-3">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-              <path d="M20 6L9 17l-5-5"/>
-            </svg>
-            <span>Planilha importada e validada com sucesso! Os dados já refletem no dashboard.</span>
-          </div>
+            v-if="upload.erro"
 
-          <!-- Botão de Envio / Processamento -->
-          <div class="mt-8 flex items-center justify-end gap-4">
-            <router-link 
+            class="
+
+              mt-6
+
+              rounded-xl
+
+              border
+
+              border-red-500/30
+
+              bg-red-500/10
+
+              p-4
+
+              text-sm
+
+              text-red-400
+
+            "
+>
+
+            {{ upload.erro }}
+</div>
+ 
+          <!-- SUCESSO -->
+<div
+
+            v-if="uploadSuccess"
+
+            class="
+
+              mt-6
+
+              flex
+
+              items-center
+
+              gap-3
+
+              rounded-xl
+
+              border
+
+              border-[#3fb890]/30
+
+              bg-[#3fb890]/15
+
+              p-4
+
+              text-sm
+
+              text-[#6ee7b7]
+
+            "
+>
+<svg
+
+              width="20"
+
+              height="20"
+
+              viewBox="0 0 24 24"
+
+              fill="none"
+
+              stroke="currentColor"
+
+              stroke-width="2.5"
+>
+<path d="M20 6L9 17l-5-5"/>
+</svg>
+ 
+            <span>
+
+              Planilha processada com sucesso.
+
+              Foram lidos
+
+              {{ upload.totalRegistros }}
+
+              registros.
+</span>
+</div>
+ 
+          <!-- BOTÕES -->
+<div
+
+            class="
+
+              mt-8
+
+              flex
+
+              items-center
+
+              justify-end
+
+              gap-4
+
+            "
+>
+ 
+            <router-link
+
               to="/dashboard"
-              class="px-5 py-2.5 rounded-xl border border-white/10 text-sm text-neutral-300 hover:bg-white/[0.05] transition-colors"
-            >
+
+              class="
+
+                rounded-xl
+
+                border
+
+                border-white/10
+
+                px-5
+
+                py-2.5
+
+                text-sm
+
+                text-neutral-300
+
+                transition
+ 
+                hover:bg-white/[0.05]
+
+              "
+>
+
               Cancelar
-            </router-link>
+</router-link>
+ 
+            <button
 
-            <button 
-              @click="simulateUpload"
-              :disabled="!selectedFile || isUploading"
+              @click="processar"
+
+              :disabled="
+
+                !selectedFile ||
+
+                upload.carregando
+
+              "
+
               :class="[
-                'px-6 py-2.5 rounded-xl font-medium text-sm transition-all flex items-center gap-2',
-                !selectedFile || isUploading 
-                  ? 'bg-neutral-800 text-neutral-500 cursor-not-allowed border border-white/5' 
-                  : 'bg-[#5a9682] hover:bg-[#4a7d6c] text-[#0a0a08] shadow-lg shadow-[#5a9682]/20'
+
+                `
+
+                flex
+
+                items-center
+
+                gap-2
+
+                rounded-xl
+
+                px-6
+
+                py-2.5
+
+                text-sm
+
+                font-medium
+
+                transition-all
+
+                `,
+
+                !selectedFile ||
+
+                upload.carregando
+
+                  ? `
+
+                    cursor-not-allowed
+
+                    bg-neutral-800
+
+                    text-neutral-500
+
+                  `
+
+                  : `
+
+                    bg-[#5a9682]
+
+                    text-[#0a0a08]
+
+                    hover:bg-[#4a7d6c]
+
+                  `
+
               ]"
-            >
-              <span v-if="isUploading" class="w-4 h-4 border-2 border-[#0a0a08] border-t-transparent rounded-full animate-spin"></span>
-              {{ isUploading ? 'Processando dados...' : 'Enviar e Processar' }}
+>
+ 
+              <span
+
+                v-if="upload.carregando"
+
+                class="
+
+                  h-4
+
+                  w-4
+
+                  animate-spin
+
+                  rounded-full
+
+                  border-2
+
+                  border-[#0a0a08]
+
+                  border-t-transparent
+
+                "
+></span>
+ 
+              {{
+
+                upload.carregando
+
+                  ? 'Processando...'
+
+                  : 'Enviar e Processar'
+
+              }}
+ 
             </button>
+ 
           </div>
+ 
+          <!-- IR PRO DASH -->
+<button
 
+            v-if="uploadSuccess"
+
+            @click="irDashboard"
+
+            class="
+
+              mt-4
+
+              w-full
+
+              rounded-xl
+
+              border
+
+              border-[#5a9682]/30
+
+              bg-[#5a9682]/10
+
+              px-5
+
+              py-3
+
+              text-sm
+
+              font-medium
+
+              text-[#8fc0ae]
+
+              transition
+ 
+              hover:bg-[#5a9682]/20
+
+            "
+>
+
+            Ver dados no Dashboard
+</button>
+ 
         </div>
+ 
       </div>
-
+ 
     </div>
+ 
   </main>
 </template>
+ 

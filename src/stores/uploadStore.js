@@ -1,53 +1,152 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
-import * as XLSX from 'xlsx' // Biblioteca para ler planilhas (Excel/CSV)
 
+import { ref, computed } from 'vue'
+
+import * as XLSX from 'xlsx'
+ 
 export const useUploadStore = defineStore('upload', () => {
+
+  const arquivo = ref(null)
+ 
   const dadosPlanilha = ref([])
+ 
   const carregando = ref(false)
+ 
   const erro = ref(null)
+ 
+  const totalRegistros = computed(() => {
 
-  function setDados(novosDados) {
-    dadosPlanilha.value = novosDados
-  }
+    return dadosPlanilha.value.length
 
-  // Função para processar o arquivo enviado via input
-  async function processarArquivo(event) {
-    const arquivo = event.target.files[0]
-    if (!arquivo) return
+  })
+ 
+  const temDados = computed(() => {
 
-    carregando.value = true
+    return dadosPlanilha.value.length > 0
+
+  })
+ 
+  function selecionarArquivo(file) {
+
+    arquivo.value = file
+ 
+    dadosPlanilha.value = []
+ 
     erro.value = null
 
-    try {
-      // Ler o arquivo como ArrayBuffer
-      const data = await arquivo.arrayBuffer()
-      
-      // Processar a planilha com a biblioteca XLSX
-      const workbook = XLSX.read(data, { type: 'array' })
-      
-      // Pega a primeira aba da planilha
-      const nomePrimeiraAba = workbook.SheetNames[0]
-      const worksheet = workbook.Sheets[nomePrimeiraAba]
-      
-      // Converte os dados da aba em um array de objetos JSON
-      const jsonDados = XLSX.utils.sheet_to_json(worksheet)
+  }
+ 
+  function removerArquivo() {
 
-      // Salva no estado do Pinia
-      setDados(jsonDados)
-    } catch (err) {
-      console.error('Erro ao ler a planilha:', err)
-      erro.value = 'Não foi possível ler o arquivo. Certifique-se de que é uma planilha válida.'
-    } finally {
-      carregando.value = false
+    arquivo.value = null
+ 
+    dadosPlanilha.value = []
+ 
+    erro.value = null
+
+  }
+ 
+  async function processarArquivo() {
+
+    if (!arquivo.value) {
+
+      erro.value = 'Selecione uma planilha antes de continuar.'
+
+      return false
+
     }
+ 
+    carregando.value = true
+
+    erro.value = null
+ 
+    try {
+
+      const data =
+
+        await arquivo.value.arrayBuffer()
+ 
+      const workbook =
+
+        XLSX.read(data, {
+
+          type: 'array'
+
+        })
+ 
+      const nomePrimeiraAba =
+
+        workbook.SheetNames[0]
+ 
+      const worksheet =
+
+        workbook.Sheets[nomePrimeiraAba]
+ 
+      const jsonDados =
+
+        XLSX.utils.sheet_to_json(
+
+          worksheet,
+
+          {
+
+            defval: ''
+
+          }
+
+        )
+ 
+      dadosPlanilha.value =
+
+        jsonDados
+ 
+      return true
+ 
+    } catch (err) {
+
+      console.error(
+
+        'Erro ao ler a planilha:',
+
+        err
+
+      )
+ 
+      erro.value =
+
+        'Não foi possível ler o arquivo. Verifique se a planilha é válida.'
+ 
+      return false
+ 
+    } finally {
+
+      carregando.value = false
+
+    }
+
+  }
+ 
+  return {
+
+    arquivo,
+
+    dadosPlanilha,
+
+    carregando,
+
+    erro,
+ 
+    totalRegistros,
+
+    temDados,
+ 
+    selecionarArquivo,
+
+    removerArquivo,
+
+    processarArquivo
+
   }
 
-  return {
-    dadosPlanilha,
-    carregando,
-    erro,
-    setDados,
-    processarArquivo
-  }
 })
+ 
