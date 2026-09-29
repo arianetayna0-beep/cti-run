@@ -1,15 +1,17 @@
 <script setup>
 import { ref, onMounted } from 'vue'
+import { useSpreadsheetStore } from '../stores/spreadsheetStore'
 
-// Lista simulada de relatórios gerados no sistema
+const store = useSpreadsheetStore()
+const filtroAtivo = ref('Todos')
+
+// Lista simulada de relatórios (caso queira manter histórico visual junto com os dados reais)
 const relatorios = ref([
   { id: 1, nome: 'Relatório de Produção Industrial - Junho', tipo: 'Produção', data: '14/06/2026', status: 'Concluído', tamanho: '2.4 MB' },
   { id: 2, nome: 'Fechamento de Turno e Eficiência', tipo: 'Desempenho', data: '12/06/2026', status: 'Concluído', tamanho: '1.8 MB' },
   { id: 3, nome: 'Análise de Insumos e Desperdícios', tipo: 'Insumos', data: '10/06/2026', status: 'Processando', tamanho: '3.1 MB' },
   { id: 4, nome: 'Consolidado de Metas Semanais', tipo: 'Gestão', data: '05/06/2026', status: 'Concluído', tamanho: '950 KB' },
 ])
-
-const filtroAtivo = ref('Todos')
 
 // Canvas de partículas ao fundo mantendo a identidade visual do CTI RUN
 onMounted(() => {
@@ -108,6 +110,63 @@ onMounted(() => {
           >
             <span>Nova Importação</span>
           </router-link>
+        </div>
+      </div>
+
+      <!-- PAINEL DE VALIDAÇÃO DO PINIA (Exibido se houver planilha processada) -->
+      <div v-if="store.hasData" class="mb-8 p-6 rounded-2xl border border-[#5a9682]/30 bg-[#0a0a08]/90 backdrop-blur-md shadow-2xl">
+        <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6 pb-4 border-b border-white/10">
+          <div>
+            <span class="px-2.5 py-1 rounded-md bg-[#5a9682]/20 text-[#8fc0ae] border border-[#5a9682]/30 text-[11px] font-medium">Validação Ativa</span>
+            <h2 class="text-base font-semibold text-white mt-1">📁 Arquivo: {{ store.fileName }}</h2>
+          </div>
+          <button @click="store.resetStore()" class="px-3 py-1.5 bg-red-500/20 text-red-300 text-xs rounded-xl border border-red-500/30 hover:bg-red-500/30 transition-colors">
+            Limpar Dados da Análise
+          </button>
+        </div>
+
+        <!-- Cards de Métricas (Calculadas via Pinia Getters) -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          <div class="p-4 rounded-xl bg-white/[0.03] border border-white/10">
+            <p class="text-[11px] text-neutral-400">Total de Registros</p>
+            <p class="text-xl font-bold text-white mt-1">{{ store.totalRecords }}</p>
+          </div>
+          <div class="p-4 rounded-xl bg-white/[0.03] border border-white/10">
+            <p class="text-[11px] text-neutral-400">Registros Válidos</p>
+            <p class="text-xl font-bold text-emerald-400 mt-1">{{ store.validRecords.length }}</p>
+          </div>
+          <div class="p-4 rounded-xl bg-white/[0.03] border border-white/10">
+            <p class="text-[11px] text-neutral-400">Registros com Erro</p>
+            <p class="text-xl font-bold text-red-400 mt-1">{{ store.invalidCount }}</p>
+          </div>
+          <div class="p-4 rounded-xl bg-white/[0.03] border border-white/10">
+            <p class="text-[11px] text-neutral-400">Taxa de Sucesso</p>
+            <p class="text-xl font-bold text-[#8fc0ae] mt-1">{{ store.successRate }}%</p>
+          </div>
+        </div>
+
+        <!-- Tabela Detalhada de Erros Extraídos pelo Pinia -->
+        <h3 class="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-3">Ocorrências e Inconsistências Detectadas</h3>
+        <div v-if="store.errorRecords.length === 0" class="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs text-center">
+          🎉 Nenhum erro encontrado! Todos os registros da planilha passaram nas validações.
+        </div>
+        <div v-else class="overflow-x-auto max-h-60 overflow-y-auto rounded-xl border border-white/10">
+          <table class="w-full text-left border-collapse">
+            <thead>
+              <tr class="sticky top-0 bg-[#0a0a08] border-b border-white/10 text-[11px] text-neutral-400 font-semibold uppercase">
+                <th class="py-3 px-4">Linha</th>
+                <th class="py-3 px-4">Campo</th>
+                <th class="py-3 px-4">Descrição do Problema</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-white/5 text-xs">
+              <tr v-for="(err, index) in store.errorRecords" :key="index" class="hover:bg-white/[0.02]">
+                <td class="py-3 px-4 font-mono text-[#8fc0ae]">Linha {{ err.row }}</td>
+                <td class="py-3 px-4 text-white font-medium">{{ err.field }}</td>
+                <td class="py-3 px-4 text-red-400">{{ err.message }}</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
 
